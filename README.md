@@ -1,5 +1,13 @@
 # This image run opensource jobscheduler (http://www.sos-berlin.com)
 
+## Intro
+
+This to build a docker image for opensource jobscheduler:
+ - run as a standalone server
+ - run in foreground as PID 1 of the container
+ - after install some files are patched to allow to start JS in foreground as PID 1 of the container
+ - the directory "genPatch" contain both native and docker patched files to manually generate the patch file used to build the container
+
 ## Build
 
 The provided dockerfile allow you to specify the osjs version via the JSVER and the JSURL environment variables. The JSURL is the "base" URL without the .tar.gz file name.
