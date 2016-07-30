@@ -1,0 +1,42 @@
+FROM centos
+
+MAINTAINER <christophe.gattardi@gmail.com>
+
+ENV JSVER=1.9.11
+
+COPY jobscheduler_install.$JSVER.xml /tmp
+COPY jobscheduler.sh.patch /tmp
+COPY jobscheduler_environment_variables.sh.patch /tmp
+
+# Container OS update
+RUN yum -y update && \
+	yum clean all
+
+# osjs pre-req
+RUN cd /tmp && \
+	yum -y install wget postgresql && \
+	wget -q http://192.168.99.1/jre/jre-8u91-linux-x64.rpm && \
+	yum -y install jre-8u91-linux-x64.rpm && \
+	rm jre-8u91-linux-x64.rpm && \
+	yum clean all
+
+# osjs install
+RUN cd /tmp && \
+	wget -q http://192.168.99.1/osjs/jobscheduler_linux-x64.$JSVER.tar.gz && \
+	tar xzf /tmp/jobscheduler_linux-x64.$JSVER.tar.gz -C /tmp && \
+	/tmp/jobscheduler.$JSVER/setup.sh /tmp/jobscheduler_install.$JSVER.xml && \
+	rm -fr /tmp/jobscheduler.$JSVER && \
+	rm -f /tmp/jobscheduler_install.JSVER.xml /tmp/jobscheduler_linux-x64.$JSVER.tar.gz
+
+# patch osjs install
+RUN yum -y install patch && \
+	patch /opt/sos-berlin.com/jobscheduler/osjs_4444/bin/jobscheduler.sh /tmp/jobscheduler.sh.patch && \
+	patch /opt/sos-berlin.com/jobscheduler/osjs_4444/bin/jobscheduler_environment_variables.sh /tmp/jobscheduler_environment_variables.sh.patch && \
+	yum -y remove patch && \
+	yum clean all
+
+COPY start_js.sh /opt/sos-berlin.com/jobscheduler/osjs_4444/bin
+RUN chmod 755 /opt/sos-berlin.com/jobscheduler/osjs_4444/bin/start_js.sh
+
+EXPOSE 4444
+CMD ["/opt/sos-berlin.com/jobscheduler/osjs_4444/bin/start_js.sh"]

@@ -1,0 +1,661 @@
+#! /bin/sh
+#  ------------------------------------------------------------
+#  Company: Software- und Organisations-Service GmbH
+#  Author : Oliver Haufe <oliver.haufe@sos-berlin.com>
+#  Purpose: control JobScheduler via command line
+#  $Id: jobscheduler.sh 27519 2014-10-09 22:39:58Z oh $
+#  ------------------------------------------------------------
+
+### BEGIN INIT INFO
+# Provides:          jobscheduler
+# Required-Start:    $syslog $remote_fs
+# X-UnitedLinux-Should-Start: $time ypbind sendmail
+# Required-Stop:     $syslog $remote_fs
+# X-UnitedLinux-Should-Stop: $time ypbind sendmail
+# Default-Start:     3 5
+# Default-Stop:      0 1 2 6
+# Short-Description: JobScheduler providing by Software- und Organisations-Service GmbH
+# Description:       Start JobScheduler
+#	continued on second line by '#<TAB>'
+#	should contain enough info for the runlevel editor
+#	to give admin some idea what this service does and
+#	what it's needed for ...
+#	(The Short-Description should already be a good hint.)
+### END INIT INFO
+
+SCHEDULER_BINDIR="`dirname $0`"
+SCHEDULER_BINDIR="`cd \"${SCHEDULER_BINDIR}\" >/dev/null && pwd`"
+SCHEDULER_ENV_FILE="${SCHEDULER_BINDIR}/jobscheduler_environment_variables.sh"
+
+if [ -x "${SCHEDULER_ENV_FILE}" ]
+then
+  . "${SCHEDULER_ENV_FILE}"
+else
+  SCHEDULER_BINDIR="/opt/sos-berlin.com/jobscheduler/osjs_4444/bin"
+  SCHEDULER_ENV_FILE="${SCHEDULER_BINDIR}/jobscheduler_environment_variables.sh"
+
+  if [ -x "${SCHEDULER_ENV_FILE}" ]
+  then
+    . "${SCHEDULER_ENV_FILE}"
+  else
+    echo "... the file ${SCHEDULER_ENV_FILE} doesn't exist."
+    exit 4
+  fi
+fi
+
+INCLUDE_ENV=". ${SCHEDULER_ENV_FILE}"
+SCHEDULER_USER_ENV_FILE="${SCHEDULER_BINDIR}/../user_bin/jobscheduler_environment_variables.sh"
+
+if [ -x "${SCHEDULER_USER_ENV_FILE}" ]
+then
+  . "${SCHEDULER_USER_ENV_FILE}"
+  INCLUDE_ENV="${INCLUDE_ENV};. ${SCHEDULER_USER_ENV_FILE}"
+fi
+
+SCHEDULER_EXIT=0
+SCHEDULER_ARGS=""
+
+# Check for missing binaries (stale symlinks should not happen)
+if [ ! -x "$SCHEDULER_BIN" ]
+then
+  echo "... the binary $SCHEDULER_BIN is missing"
+  exit 5
+fi
+
+# Shell functions sourced from /etc/rc.status:
+#      rc_check         check and set local and overall rc status
+#      rc_status        check and set local and overall rc status
+#      rc_status -v     ditto but be verbose in local rc status
+#      rc_status -v -r  ditto and clear the local rc status
+#      rc_status -s     display "skipped" and exit with status 3
+#      rc_status -u     display "unused" and exit with status 3
+#      rc_failed        set local and overall rc status to failed
+#      rc_failed <num>  set local and overall rc status to <num>
+#      rc_reset         clear local rc status (overall remains)
+#      rc_exit          exit appropriate to overall rc status
+#      rc_active  checks whether a service is activated by symlinks
+#      rc_splash arg    sets the boot splash screen to arg (if active)
+
+if [ -f /etc/rc.status ]
+then
+  . /etc/rc.status
+  rc_enabled=1
+  # Reset status of this service
+  rc_reset
+else
+  rc_enabled=0  
+fi
+
+
+usage() {
+
+  echo "Usage: $SCHEDULER_HOME/bin/`basename $0` command [options]"
+  echo "  command:"
+  echo "    debug               [log-category]    [cluster_options]"
+  echo "    start               [paused]          [cluster_options]"
+  echo "    start_safe          [paused]          [cluster_options]"
+  echo "    stop                [cluster_options]"
+  echo "    restart             [cluster_options]"
+  echo "    abort               [cluster_options]"
+  echo "    pause"
+  echo "    continue"
+  echo "    kill"
+  echo "    status              [status-category] [limit]"
+  echo "    command             [xml-command]     [cluster_options]"
+  echo "    terminate_cluster   [timeout]"
+  echo "    restart_cluster     [timeout]"
+  echo "    terminate_fail-safe [timeout]"
+  echo "    expand-classpath"
+  echo "    version"
+  echo "    for more information see \"$SCHEDULER_HOME/doc/en/reference/command_line.xml\""
+  echo "    and \"$SCHEDULER_HOME/doc/en/reference/xml_commands.xml\""
+  echo "  cluster_options:"
+  echo "    -exclusive"
+  echo "    -backup"
+  echo "    -backup-precedence=integer"
+  echo "    for more information see \"$SCHEDULER_HOME/doc/en/reference/command_line.xml\""
+  echo "  log-category:"
+  echo "    e.g. all (default)"
+  echo "    for more information see \"$SCHEDULER_HOME/doc/en/reference/log_categories.xml\""
+  echo "  status-category:"
+  echo "    jobs: shows running jobs"
+  echo "    calendar: shows jobs which will run in the future"
+  echo "  limit:"
+  echo "    number of days for which to report start times of jobs, orders"   
+  echo "  timeout in seconds"
+}
+
+
+
+remember_status() {
+
+  # Remember status and be verbose
+  if [ $rc_enabled -eq 1 ]
+  then
+    test $SCHEDULER_EXIT -eq 0 || rc_failed 3
+    rc_status -v
+  fi
+  echo
+}
+
+
+kill_scheduler() {
+
+  test -f "$SCHEDULER_PID" && rm -f "$SCHEDULER_PID"
+  
+  SCHEDULER_FOUND=0
+  
+  SCHEDULER_SAFE_PS=`ps -f -u $SCHEDULER_USER -w -w | egrep "$SCHEDULER_SAFE.+-id=$SCHEDULER_ID" | grep -v "grep" | awk '{print $2}'`
+  
+  for i in $SCHEDULER_SAFE_PS
+  do
+    SCHEDULER_FOUND=1
+    echo ".. try to terminate process ID=$i with \"kill -15 (soft kill)\" .."
+    kill -15 $i 2> /dev/null
+    sleep 5
+    if ps -p $i > /dev/null 2>&1
+    then
+      echo ".. try once more with \"kill -9 (hard)\" .."
+      kill -9 $i
+      kill_err=$?
+      sleep 5
+      if [ $kill_err -eq 0 ]
+      then
+        echo "terminated." 
+        continue
+      else
+        echo ".. could not terminate scheduler."
+      fi
+    else
+      echo "terminated."
+      continue  
+    fi  
+  done
+  
+  SCHEDULER_PS=`ps -f -u $SCHEDULER_USER -w -w | egrep "$SCHEDULER_BIN.+-id=$SCHEDULER_ID" | grep -v "grep" | awk '{print $2}'`
+
+  for i in $SCHEDULER_PS
+  do
+    SCHEDULER_FOUND=1
+    echo ".. try to terminate process ID=$i with \"kill -15 (soft kill)\" .."
+    kill -15 $i 2> /dev/null
+    sleep 5
+    if ps -p $i > /dev/null 2>&1
+    then
+      echo ".. try once more with \"kill -9 (hard)\" .."
+      kill -9 $i
+      kill_err=$?
+      sleep 5
+      if [ $kill_err -eq 0 ]
+      then
+        echo "terminated."
+        continue
+      else
+        echo ".. could not terminate scheduler."
+      fi
+    else
+      echo "terminated."
+      continue  
+    fi
+  done
+
+  if [ $SCHEDULER_FOUND -eq 0 ]
+  then
+    echo "No JobScheduler [-id=$SCHEDULER_ID] is running for the user [$SCHEDULER_USER]!!"
+  else
+    echo
+  fi
+}
+
+transform() {
+
+  SAXON_JAR=`ls "$SCHEDULER_HOME"/lib/3rd-party/Saxon*.jar 2>/dev/null`
+  if [ ! -z "$SAXON_JAR" ]
+  then
+    $JAVA_HOME/bin/java -jar "$SAXON_JAR" -s:"$TMP_XMLFILE" -xsl:"$STYLESHEET_FILE" 2>/dev/null
+  fi
+}
+
+
+get_status (){
+   
+  TMP_XMLFILE="/tmp/jobscheduler_status.$$.xml"
+  TMP_OUTFILE="/tmp/jobscheduler_status.$$.txt"
+  STYLESHEET_FILE="$SCHEDULER_DATA/config/scheduler_$1_status.xsl"
+ 
+  case "$1" in
+      jobs)  #  echo "Show state of JobScheduler jobs"
+             shift
+             SCHEDULER_ARGS="$@"
+             sos_command "<show_state  what='job_chain_orders' max_task_history='0'/>" >"$TMP_XMLFILE"
+             if [ $SCHEDULER_EXIT -eq 0 ] && [ -s "$TMP_XMLFILE" ]
+             then
+               transform
+             else
+               cat "$TMP_XMLFILE"
+             fi
+             ;;
+
+    calendar) # echo "Show next start time for next period"
+             shift  
+             FROM_DATE=" from='`date +\"%Y-%m-%dT%H:%M:%S\"`'"
+             if [ -z "$1" ] || [ "`first_letter $1`" = "-" ]
+             then
+               LIMIT=1
+             else
+               LIMIT=$1
+               shift
+             fi
+             export LIMIT
+             BEFORE_DATE=" before='`perl -e 'use POSIX qw(strftime); print strftime(\"%Y-%m-%dT%H:%M:%S\", localtime(scalar(time)+3600*(24*$ENV{'LIMIT'})))'`'"
+             LIMIT=""
+             SCHEDULER_ARGS="$@"
+             sos_command "<show_calendar what='orders' $FROM_DATE $BEFORE_DATE />" >"$TMP_XMLFILE"
+             if [ $SCHEDULER_EXIT -eq 0 ] && [ -s "$TMP_XMLFILE" ]
+             then
+               transform
+             else
+               cat "$TMP_XMLFILE"
+             fi
+             ;;
+
+      *)     sos_command "<show_state what='$1'/>"
+             ;;
+  esac
+  
+  test -f "$TMP_XMLFILE" && rm "$TMP_XMLFILE"
+  test -f "$TMP_OUTFILE" && rm "$TMP_OUTFILE"         
+}
+
+
+apply_cluster_options() {
+  
+  SCHEDULER_ARGS="$@"
+  HAS_CLUSTER_OPTION=`echo " $SCHEDULER_ARGS" | grep -v " -exclusive" | grep -v " -distributed-orders" | grep -v " -ip-address=" | egrep -v " (-tcp|-udp)?-port="`
+  test "$HAS_CLUSTER_OPTION" = "" || SCHEDULER_ARGS="$SCHEDULER_CLUSTER_OPTIONS $SCHEDULER_ARGS"
+}
+
+
+sos_command() {
+
+  TMP_ANSWER="/tmp/jobscheduler_answer.$$.xml"
+  TMP_ANSWER2="/tmp/jobscheduler_answer2.$$.xml"
+  TMP_LOG="/tmp/jobscheduler_answer.$$.log"
+  if [ $SCHEDULER_EXIT -eq 0 ]; then
+    $SH "\"$SCHEDULER_BIN\" $SCHEDULER_ARGS $SCHEDULER_PARAMS \"-log=${TMP_LOG}\" \"-send-cmd=$1\"" > "$TMP_ANSWER"
+    SCHEDULER_EXIT=$?
+  fi
+  if [ $SCHEDULER_EXIT -eq 0 ]; then
+    if [ -s "$TMP_ANSWER" ]; then
+      egrep '<spooler><answer[^>]*>' "$TMP_ANSWER" > "${TMP_ANSWER2}"
+      if [ -s "${TMP_ANSWER2}" ]; then
+        mv -f "${TMP_ANSWER2}" "$TMP_ANSWER" >/dev/null 2>/dev/null
+      fi
+    fi
+    
+    if [ -s "$TMP_ANSWER" ]; then
+      cat "$TMP_ANSWER"
+      scheduler_response=`cat "$TMP_ANSWER" | egrep '<spooler><answer[^>]*><ERROR[^>]*>'`
+      test "$scheduler_response" = "" || SCHEDULER_EXIT=3
+    else
+      if [ "`echo "$1" | grep abort_immediately`" = "" ]
+      then
+        echo "No response from JobScheduler: Please check the security settings" >&2
+        SCHEDULER_EXIT=121
+      else
+        echo "No response from JobScheduler" >&2
+        SCHEDULER_EXIT=3
+      fi
+    fi
+  fi
+  test -f "$TMP_ANSWER" && rm "$TMP_ANSWER"
+  test -f "${TMP_ANSWER2}" && rm "${TMP_ANSWER2}"
+  test -f "${TMP_LOG}" && rm "${TMP_LOG}"
+}
+
+
+first_letter() {
+  expr "$1" : '\(.\)'
+}
+
+
+start_jobscheduler() {
+  if [ "$USER" = "$SCHEDULER_USER" ]
+  then
+    $SH "$SCHEDULER_ARGS"
+  else
+    su - $SCHEDULER_USER -c "$INCLUDE_ENV;$SCHEDULER_ARGS"
+  fi
+  SCHEDULER_EXIT=$?  
+}
+
+
+case "$1" in
+    execfg)  # some applications need X-Server
+             # export DISPLAY=:1
+             # $SH "Xvfb :1" &
+             # echo $! > $SCHEDULER_DATA/logs/Xvfb.pid
+             
+             shift
+             if [ "$1" = "paused" ]
+             then
+               echo "Starting JobScheduler paused..."
+               SCHEDULER_SECOND_ARG="-cmd=\"<modify_spooler cmd='pause'/>\""
+               shift
+             else
+               echo "Starting JobScheduler..."
+               SCHEDULER_SECOND_ARG=""
+             fi 
+             
+             apply_cluster_options "$@"
+             SCHEDULER_ARGS="\"$SCHEDULER_BIN\" $SCHEDULER_ARGS $SCHEDULER_EXEC_PARAMS $SCHEDULER_SECOND_ARG"
+  
+             if [ "$USER" = "$SCHEDULER_USER" ]
+             then
+                 exec $SH "$SCHEDULER_ARGS"
+             else
+                 echo "User Id change not supported in this mode"
+             fi
+             SCHEDULER_EXIT=$?  
+             ;;
+             
+    start)   # some applications need X-Server
+             # export DISPLAY=:1
+             # $SH "Xvfb :1" &
+             # echo $! > $SCHEDULER_DATA/logs/Xvfb.pid
+             
+             shift
+             if [ "$1" = "paused" ]
+             then
+               echo "Starting JobScheduler paused..."
+               SCHEDULER_SECOND_ARG="-cmd=\"<modify_spooler cmd='pause'/>\""
+               shift
+             else
+               echo "Starting JobScheduler..."
+               SCHEDULER_SECOND_ARG=""
+             fi 
+             
+             apply_cluster_options "$@"
+             SCHEDULER_ARGS="\"$SCHEDULER_BIN\" $SCHEDULER_ARGS $SCHEDULER_START_PARAMS $SCHEDULER_SECOND_ARG"
+  
+             start_jobscheduler
+             remember_status
+             ;;
+             
+    start_safe)
+             # some applications need X-Server
+             # export DISPLAY=:1
+             # $SH "Xvfb :1" &
+             # echo $! > $SCHEDULER_DATA/logs/Xvfb.pid
+             
+             shift
+             if [ "$1" = "paused" ]
+             then
+               SCHEDULER_PAUSED_TITLE=" and paused"
+               SCHEDULER_SECOND_ARG="-paused \"-cmd=<modify_spooler cmd='pause'/>\""
+               shift
+             else
+               SCHEDULER_PAUSED_TITLE=""
+               SCHEDULER_SECOND_ARG=""
+             fi
+             
+             apply_cluster_options "$@"
+             
+             if [ ! -x "$SCHEDULER_SAFE" ]
+             then
+               echo "... the script $SCHEDULER_SAFE is missing"
+               echo "Starting JobScheduler unsafe$SCHEDULER_PAUSED_TITLE..."
+               SCHEDULER_ARGS="\"$SCHEDULER_BIN\" $SCHEDULER_ARGS $SCHEDULER_START_PARAMS $SCHEDULER_SECOND_ARG"
+               start_jobscheduler
+             else
+               echo "Starting JobScheduler safe$SCHEDULER_PAUSED_TITLE..."
+               SCHEDULER_ARGS="\"$SCHEDULER_SAFE\" \"$SCHEDULER_BIN\" $SCHEDULER_ARGS $SCHEDULER_START_PARAMS $SCHEDULER_SECOND_ARG"
+               start_jobscheduler
+             fi
+             
+             remember_status
+             ;;
+    
+    stop)    shift
+             apply_cluster_options "$@"
+             get_status "jobs" $SCHEDULER_ARGS
+             
+             echo "Shutting down JobScheduler..."
+             sos_command "<modify_spooler cmd='terminate'/>"
+             
+             # stop X-Server
+             # if [ -f $SCHEDULER_DATA/logs/Xvfb.pid ]; then
+             #  kill `cat $SCHEDULER_DATA/logs/Xvfb.pid`
+             #  rm $SCHEDULER_DATA/logs/Xvfb.pid
+             # fi
+             
+             remember_status
+             ;;
+             
+    terminate_cluster)
+             shift    
+             echo "Shutting down all clustered JobSchedulers..."
+             if [ -z "$1" ] || [ "`first_letter $1`" = "-" ]
+             then
+               SCHEDULER_SECOND_ARG=""
+             else
+               SCHEDULER_SECOND_ARG=" timeout='$1'"
+               shift
+             fi
+             apply_cluster_options "$@"
+             sos_command "<terminate all_schedulers='yes' $SCHEDULER_SECOND_ARG/>"
+             
+             # stop X-Server
+             # if [ -f $SCHEDULER_DATA/logs/Xvfb.pid ]; then
+             #  kill `cat $SCHEDULER_DATA/logs/Xvfb.pid`
+             #  rm $SCHEDULER_DATA/logs/Xvfb.pid
+             # fi
+  
+             remember_status
+             ;;
+    
+    pause)
+             shift    
+             echo "Pause JobScheduler..."
+             apply_cluster_options "$@"
+             sos_command "<modify_spooler cmd='pause'/>"
+             remember_status
+             ;;
+			 
+    "continue")
+             shift    
+             echo "Continue JobScheduler..."
+             apply_cluster_options "$@"
+             sos_command "<modify_spooler cmd='continue'/>"
+             remember_status
+             ;;
+			 
+	abort)   shift
+             apply_cluster_options "$@"
+             get_status "jobs" $SCHEDULER_ARGS
+             
+             echo "Shutting down JobScheduler..."
+             sos_command "<modify_spooler cmd='abort_immediately'/>"
+             
+             # stop X-Server
+             # if [ -f $SCHEDULER_DATA/logs/Xvfb.pid ]; then
+             #  kill `cat $SCHEDULER_DATA/logs/Xvfb.pid`
+             #  rm $SCHEDULER_DATA/logs/Xvfb.pid
+             # fi
+             
+             remember_status
+             ;;
+    
+    restart) shift
+             apply_cluster_options "$@" 
+                         
+             echo "Restarting JobScheduler..."
+             sos_command "<modify_spooler cmd='terminate_and_restart'/>"
+             
+             remember_status
+             ;;
+             
+    restart_cluster)
+             shift    
+             echo "Restarting all clustered JobSchedulers..."
+             if [ -z "$1" ] || [ "`first_letter $1`" = "-" ]
+             then
+               SCHEDULER_SECOND_ARG=""
+             else
+               SCHEDULER_SECOND_ARG=" timeout='$1'"
+               shift
+             fi
+             apply_cluster_options "$@"
+             sos_command "<terminate all_schedulers='yes' restart='yes' $SCHEDULER_SECOND_ARG />"
+             
+             remember_status
+             ;;
+             
+    terminate_fail-safe)
+             shift    
+             echo "Shutting down JobScheduler fail-safe..."
+             if [ -z "$1" ] || [ "`first_letter $1`" = "-" ]
+             then
+               SCHEDULER_SECOND_ARG=""
+             else
+               SCHEDULER_SECOND_ARG=" timeout='$1'"
+               shift
+             fi
+             apply_cluster_options "$@"
+             sos_command "<terminate continue_exclusive_operation='yes' $SCHEDULER_SECOND_ARG />"
+             
+             # stop X-Server
+             # if [ -f $SCHEDULER_DATA/logs/Xvfb.pid ]; then
+             #  kill `cat $SCHEDULER_DATA/logs/Xvfb.pid`
+             #  rm $SCHEDULER_DATA/logs/Xvfb.pid
+             # fi
+             
+             remember_status
+             echo
+             ;;
+    
+    status)  # echo "Show state of JobScheduler..."
+             shift
+             if [ -z "$1" ] || [ "`first_letter $1`" = "-" ]
+             then
+               SCHEDULER_SECOND_ARG="standard"
+             else 
+               SCHEDULER_SECOND_ARG="$1"
+               shift
+             fi
+             apply_cluster_options "$@"
+             get_status $SCHEDULER_SECOND_ARG $SCHEDULER_ARGS
+             remember_status
+             ;;
+             
+    show_state)
+             shift
+             if [ -z "$1" ] || [ "`first_letter $1`" = "-" ]
+             then
+               SCHEDULER_SECOND_ARG="standard"
+             else 
+               SCHEDULER_SECOND_ARG="$1"
+               shift
+             fi 
+             apply_cluster_options "$@"
+             # echo "Show state of JobScheduler (what='$SCHEDULER_SECOND_ARG')..."
+             sos_command "<show_state what='$SCHEDULER_SECOND_ARG'/>"
+             
+             remember_status
+             echo
+             ;;             
+             
+    debug)   shift
+             if [ -z "$1" ] || [ "`first_letter $1`" = "-" ]
+             then
+               SCHEDULER_SECOND_ARG="all"
+             else
+               SCHEDULER_SECOND_ARG="$1"
+               shift
+             fi
+             apply_cluster_options "$@"
+             echo "Starting JobScheduler in debug mode '$SCHEDULER_SECOND_ARG'..."
+             SCHEDULER_ARGS="\"$SCHEDULER_BIN\" $SCHEDULER_ARGS $SCHEDULER_PARAMS \"-log=$SCHEDULER_SECOND_ARG>$SCHEDULER_DATA/logs/scheduler.log\" -log-dir=*stderr"
+             
+             start_jobscheduler
+             remember_status
+             ;;
+             
+    kill)    if [ -z "$2" ]
+             then
+               #get_status "jobs"  
+               echo "Killing JobScheduler from process list"
+               $SH "\"$SCHEDULER_BIN\" -kill \"-pid-file=$SCHEDULER_PID\""
+             else
+               #get_status "jobs"  
+               echo "Killing JobScheduler from process list with PID $2"
+               $SH "\"$SCHEDULER_BIN\" -kill=$2"
+             fi
+             KILL_EXIT=$?
+             if [ $KILL_EXIT -eq 0 ]
+             then
+               test -f "$SCHEDULER_PID" && rm -f "$SCHEDULER_PID"
+             else
+               kill_scheduler
+               KILL_EXIT=$?
+             fi 
+             
+             # stop X-Server
+             # if [ -f $SCHEDULER_DATA/logs/Xvfb.pid ]; then
+             #  kill `cat $SCHEDULER_DATA/logs/Xvfb.pid`
+             #  rm $SCHEDULER_DATA/logs/Xvfb.pid
+             # fi
+             
+             exit $KILL_EXIT
+             ;;
+             
+    command) if [ -z "$2" ] 
+             then 
+               echo "missing argument for JobScheduler command"
+               usage
+               exit 1
+             fi
+   
+             SCHEDULER_SECOND_ARG="$2"
+             shift
+             shift
+             apply_cluster_options "$@"
+      
+             # echo "Send command to JobScheduler..." 
+             sos_command "$SCHEDULER_SECOND_ARG"
+             
+             remember_status
+             ;;
+    
+    expand-classpath)
+             if [ -z "$2" ] 
+             then
+               CP=`cat "$SCHEDULER_INI" | egrep '^[ ]*class_path' | sed -e 's/^[ ]*class_path[ ]*=[ ]*["]*//' -e 's/["]*[ ]*$//'`
+             else
+               CP=$2
+             fi
+             $SH "\"$SCHEDULER_BIN\" \"-expand-classpath=$CP\""
+             SCHEDULER_EXIT=$?  
+             ;;
+    
+    version | -V | -version | --version )
+             # test -r "$SCHEDULER_HOME/bin/.version" && THIS_VERSION=" `cat "$SCHEDULER_HOME/bin/.version"`"
+             # test -z "$THIS_VERSION" && THIS_VERSION="version not found"
+             # echo "JobScheduler Startscript $THIS_VERSION"
+             $SH "\"$SCHEDULER_BIN\" \"-ini=$SCHEDULER_INI\" -V" 2>/dev/null
+             ;;
+             
+    ldd)     ldd "$SCHEDULER_BIN"
+             ;;
+                      
+    *)       usage
+             exit 1
+             ;;
+esac
+
+if [ $rc_enabled -eq 1 ]
+then
+  rc_exit
+else
+  exit $SCHEDULER_EXIT
+fi

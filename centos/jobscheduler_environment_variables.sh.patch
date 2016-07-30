@@ -1,0 +1,14 @@
+--- jobscheduler_environment_variables.sh.native	2016-07-28 22:04:37.576367029 +0200
++++ jobscheduler_environment_variables.sh.docker	2016-07-28 23:24:47.946059431 +0200
+@@ -22,8 +22,10 @@
+ SCHEDULER_PID="$SCHEDULER_DATA/logs/scheduler.pid"
+ SCHEDULER_INI="$SCHEDULER_DATA/config/factory.ini"
+ SCHEDULER_CLUSTER_OPTIONS=""
+-SCHEDULER_PARAMS="-service \"-id=$SCHEDULER_ID\" \"-sos.ini=$SOS_INI\" \"-ini=$SCHEDULER_INI\" \"-config=$SCHEDULER_DATA/config/scheduler.xml\" \"-param=$SCHEDULER_DATA\" \"-cd=$SCHEDULER_DATA\" \"-include-path=$SCHEDULER_DATA\""
++SCHEDULER_BASE_PARAMS="\"-id=$SCHEDULER_ID\" \"-sos.ini=$SOS_INI\" \"-ini=$SCHEDULER_INI\" \"-config=$SCHEDULER_DATA/config/scheduler.xml\" \"-param=$SCHEDULER_DATA\" \"-cd=$SCHEDULER_DATA\" \"-include-path=$SCHEDULER_DATA\""
++SCHEDULER_PARAMS="-service $SCHEDULER_BASE_PARAMS"
+ SCHEDULER_START_PARAMS="$SCHEDULER_PARAMS  \"-pid-file=$SCHEDULER_PID\""
++SCHEDULER_EXEC_PARAMS="$SCHEDULER_BASE_PARAMS  \"-pid-file=$SCHEDULER_PID\""
+ SCHEDULER_BIN="$SCHEDULER_HOME/bin/scheduler"
+ SCHEDULER_SAFE="$SCHEDULER_HOME/bin/scheduler_safe.sh"
+ 

@@ -1,0 +1,44 @@
+--- jobscheduler.sh.native	2016-07-28 21:22:30.000000000 +0200
++++ jobscheduler.sh.docker	2016-07-28 23:38:12.439526652 +0200
+@@ -331,6 +331,34 @@
+ 
+ 
+ case "$1" in
++    execfg)  # some applications need X-Server
++             # export DISPLAY=:1
++             # $SH "Xvfb :1" &
++             # echo $! > $SCHEDULER_DATA/logs/Xvfb.pid
++             
++             shift
++             if [ "$1" = "paused" ]
++             then
++               echo "Starting JobScheduler paused..."
++               SCHEDULER_SECOND_ARG="-cmd=\"<modify_spooler cmd='pause'/>\""
++               shift
++             else
++               echo "Starting JobScheduler..."
++               SCHEDULER_SECOND_ARG=""
++             fi 
++             
++             apply_cluster_options "$@"
++             SCHEDULER_ARGS="\"$SCHEDULER_BIN\" $SCHEDULER_ARGS $SCHEDULER_EXEC_PARAMS $SCHEDULER_SECOND_ARG"
++  
++             if [ "$USER" = "$SCHEDULER_USER" ]
++             then
++                 exec $SH "$SCHEDULER_ARGS"
++             else
++                 echo "User Id change not supported in this mode"
++             fi
++             SCHEDULER_EXIT=$?  
++             ;;
++             
+     start)   # some applications need X-Server
+              # export DISPLAY=:1
+              # $SH "Xvfb :1" &
+@@ -630,4 +658,4 @@
+   rc_exit
+ else
+   exit $SCHEDULER_EXIT
+-fi
+\ Pas de fin de ligne à la fin du fichier
++fi

@@ -1,0 +1,45 @@
+#! /bin/sh
+#  ------------------------------------------------------------------
+#  Company: Software- und Organisations-Service GmbH
+#  Author : Oliver Haufe <oliver.haufe@sos-berlin.com>
+#  Dated  : 2012-11-27
+#  Purpose: set environment to control Job Scheduler via command line
+#  ------------------------------------------------------------------
+
+USER=`whoami`
+SCHEDULER_USER=root
+
+SCHEDULER_HOME="/opt/sos-berlin.com/jobscheduler/osjs_4444"
+SCHEDULER_DATA="/home/user/sos-berlin.com/jobscheduler/osjs_4444"
+SCHEDULER_ID="osjs_4444"
+
+SH="/bin/sh -c"
+test -z "$SCHEDULER_DATA" && SCHEDULER_DATA="$SCHEDULER_HOME"
+test -z "$JAVA_HOME" && JAVA_HOME="/usr/java/jre1.8.0_91"
+LD_LIBRARY_PATH="$SCHEDULER_HOME/lib:/usr/local/lib64:$JAVA_HOME/lib/amd64:$JAVA_HOME/lib/amd64/server:$JAVA_HOME/jre/lib/amd64:$JAVA_HOME/jre/lib/amd64/server:$LD_LIBRARY_PATH"
+
+SOS_INI="$SCHEDULER_DATA/config/sos.ini"
+SCHEDULER_PID="$SCHEDULER_DATA/logs/scheduler.pid"
+SCHEDULER_INI="$SCHEDULER_DATA/config/factory.ini"
+SCHEDULER_CLUSTER_OPTIONS=""
+SCHEDULER_BASE_PARAMS="\"-id=$SCHEDULER_ID\" \"-sos.ini=$SOS_INI\" \"-ini=$SCHEDULER_INI\" \"-config=$SCHEDULER_DATA/config/scheduler.xml\" \"-param=$SCHEDULER_DATA\" \"-cd=$SCHEDULER_DATA\" \"-include-path=$SCHEDULER_DATA\""
+SCHEDULER_PARAMS="-service $SCHEDULER_BASE_PARAMS"
+SCHEDULER_START_PARAMS="$SCHEDULER_PARAMS  \"-pid-file=$SCHEDULER_PID\""
+SCHEDULER_EXEC_PARAMS="$SCHEDULER_BASE_PARAMS  \"-pid-file=$SCHEDULER_PID\""
+SCHEDULER_BIN="$SCHEDULER_HOME/bin/scheduler"
+SCHEDULER_SAFE="$SCHEDULER_HOME/bin/scheduler_safe.sh"
+
+export SCHEDULER_USER
+export SCHEDULER_HOME
+export SCHEDULER_DATA
+export SOS_INI
+export LD_LIBRARY_PATH
+export JAVA_HOME
+
+# For setting your Oracle environment
+# ORACLE_SID=
+# ORACLE_BASE=
+# ORACLE_HOME=
+# export ORACLE_SID
+# export ORACLE_BASE
+# export ORACLE_HOME
