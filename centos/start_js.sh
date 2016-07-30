@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # database existence check and init if necessary
-export PGPASSWORD=$PG_PASSWD
+export PGPASSWORD=$PG_SCHED_PASSWD
 psql -h osjsdb -U scheduler <<EOF
 \q
 EOF
@@ -9,7 +9,7 @@ EOF
 if [ $? -ne 0 ]
 then
 	echo Creating database
-
+	export PGPASSWORD=$PG_ADMIN_PASSWD
 	psql -h osjsdb -U postgres <<EOF
 create database scheduler;
 create role scheduler with login password 'scheduler';
