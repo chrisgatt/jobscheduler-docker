@@ -3,6 +3,9 @@ FROM centos
 MAINTAINER <christophe.gattardi@gmail.com>
 
 ENV JSVER=1.9.11
+ENV JSURL=http://192.168.99.1/osjs
+# Or from sos-berlin
+# ENV JSURL=https://download.sos-berlin.com/JobScheduler.1.9
 
 COPY jobscheduler_install.$JSVER.xml /tmp
 COPY jobscheduler.sh.patch /tmp
@@ -15,14 +18,16 @@ RUN yum -y update && \
 # osjs pre-req
 RUN cd /tmp && \
 	yum -y install wget postgresql && \
+	# put you JRE stuff here
 	wget -q http://192.168.99.1/jre/jre-8u91-linux-x64.rpm && \
-	yum -y install jre-8u91-linux-x64.rpm && \
+	yum -y install jre-8u91-linux-x64.rpm &&
 	rm jre-8u91-linux-x64.rpm && \
+	# end JRE
 	yum clean all
 
 # osjs install
 RUN cd /tmp && \
-	wget -q http://192.168.99.1/osjs/jobscheduler_linux-x64.$JSVER.tar.gz && \
+	wget -q $JSURL/jobscheduler_linux-x64.$JSVER.tar.gz && \
 	tar xzf /tmp/jobscheduler_linux-x64.$JSVER.tar.gz -C /tmp && \
 	/tmp/jobscheduler.$JSVER/setup.sh /tmp/jobscheduler_install.$JSVER.xml && \
 	rm -fr /tmp/jobscheduler.$JSVER && \
