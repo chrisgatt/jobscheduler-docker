@@ -1,4 +1,4 @@
-FROM centos
+FROM centos:7
 
 MAINTAINER <christophe.gattardi@gmail.com>
 
@@ -8,7 +8,7 @@ ENV JSURL=http://192.168.99.1/osjs
 # sos-berlin official URL
 # ENV JSURL=https://download.sos-berlin.com/JobScheduler.1.9
 
-COPY jobscheduler_install.$JSVER.xml jobscheduler.sh.patch jobscheduler_environment_variables.sh.patch /tmp
+COPY jobscheduler_install.$JSVER.xml jobscheduler.sh.patch jobscheduler_environment_variables.sh.patch /tmp/
 COPY start_js.sh /opt/sos-berlin.com/jobscheduler/osjs_4444/bin
 
 RUN yum -y update && \
