@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+
+<job  order="no" stop_on_error="no" title="job de test de jobscheduler">
+    <script  language="shell">
+      <![CDATA[
+			   echo "debut du job de test avant sleep 300"
+			   sleep 300
+			   echo "fin du job de test"
+	]]>
+    </script>
+
+    <run_time />
+</job>
