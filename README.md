@@ -1,17 +1,26 @@
-# This image run opensource jobscheduler (http://www.sos-berlin.com)
+# Opensource jobscheduler (http://www.sos-berlin.com) in docker
 
-## Intro
+ - run jobscheduler as a standalone server
+ - run jobscheduler main process in foreground as PID 1 of the container
+ - require a postgres database to run
 
-This to build a docker image for opensource jobscheduler:
- - run as a standalone server
- - run in foreground as PID 1 of the container
- - after install some files are patched to allow to start JS in foreground as PID 1 of the container
- - the directory "genPatch" contain both native and docker patched files to manually generate the patch file used to build the container
+## Content
+
+ - alpine directory: a try to run jobscheduler on alpine-jre-8 (alpine 3.2 java 8u92 and glibc 2.21). At this time jobscheduler don't start and segfault
+ - centos directory: a centos 7 based image to run jobscheduler. The provided dockerfile use:
+   - jre 8u91
+   - jobscheduler 1.9.11
+   - after install some files are patched to allow to start jobscheduler in foreground as PID 1 of the container
+   - the directory "genPatch" contain both native and docker patched files to manually generate the patch file used to build the container
+ - test directory: sample jobscheduler jobs to test the image
 
 ## Build
 
-The provided dockerfile allow you to specify the osjs version via the JSVER and the JSURL environment variables. The JSURL is the "base" URL without the .tar.gz file name.
+The provided dockerfile allow you to specify the ojs version via the JSVER and the JSURL environment variables.
+The JSURL is the "base" URL without the <jobscheduler*>.tar.gz file name (see dockerfile for example).
 You can use both an Oracle JRE or an OpenJdk you just need to change the lines beetween the tag "put your JRE stuff here" and "end JRE". 
+
+ 
 
 ## Dependencies
 
@@ -33,6 +42,7 @@ docker run -d --link osjsdb \
 	   --name osjs_server \
 	   -p 4444:4444 \
 	   -v osjs_data:/home/user/sos-berlin.com/jobscheduler \
+	   -v osjs_logs:/var/log/sos-berlin.com \
 	   -e PG_ADMIN_PASSWD=manager -e PG_SCHED_PASSWD=scheduler \
 	   osjsserv
 
