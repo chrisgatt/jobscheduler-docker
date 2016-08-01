@@ -29,15 +29,15 @@ this image need a postgres database to run. You can use any avalaible postgres i
 ## Example run commads:
 
 ### postgres pour OSJS
-
+```bash
 docker run -d --name osjsdb -p 5432 \
 	   -e POSTGRES_PASSWORD=manager \
 	   -v osjs_pgdata:/var/lib/postgresql/data \
 	   postgres
-
+```
 
 ### OSJS server
-
+```bash
 docker run -d --link osjsdb \
 	   --name osjs_server \
 	   -p 4444:4444 \
@@ -45,4 +45,4 @@ docker run -d --link osjsdb \
 	   -v osjs_logs:/var/log/sos-berlin.com \
 	   -e PG_ADMIN_PASSWD=manager -e PG_SCHED_PASSWD=scheduler \
 	   osjsserv
-
+```
