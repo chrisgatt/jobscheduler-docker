@@ -8,7 +8,7 @@
 
  - alpine directory: a try to run jobscheduler on alpine-jre-8 (alpine 3.2 java 8u92 and glibc 2.21). At this time jobscheduler don't start and segfault
  - centos directory: a centos 7 based image to run jobscheduler. The provided dockerfile use:
-   - jre 8u91
+   - java openjdk 8
    - jobscheduler 1.9.11
    - after install some files are patched to allow to start jobscheduler in foreground as PID 1 of the container
    - the directory "genPatch" contain both native and docker patched files to manually generate the patch file used to build the container
