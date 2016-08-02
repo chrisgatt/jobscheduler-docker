@@ -4,9 +4,9 @@ MAINTAINER <christophe.gattardi@gmail.com>
 
 ENV JSVER=1.9.11
 # My local repo
-ENV JSURL=http://192.168.99.1/osjs
+#ENV JSURL=http://192.168.99.1/osjs
 # sos-berlin official URL
-# ENV JSURL=https://download.sos-berlin.com/JobScheduler.1.9
+ENV JSURL=https://download.sos-berlin.com/JobScheduler.1.9
 
 COPY jobscheduler_install.$JSVER.xml jobscheduler.sh.patch jobscheduler_environment_variables.sh.patch /tmp/
 COPY start_js.sh /opt/sos-berlin.com/jobscheduler/osjs_4444/bin/
@@ -15,9 +15,7 @@ RUN yum -y update && \
 	cd /tmp && \
 	yum -y install wget postgresql patch && \
 	# put you JRE stuff here
-	wget -q http://192.168.99.1/jre/jre-8u91-linux-x64.rpm && \
-	yum -y install jre-8u91-linux-x64.rpm && \
-	rm jre-8u91-linux-x64.rpm && \
+	yum -y install java-1.8.0-openjdk && \
 	# end JRE
 	wget -q $JSURL/jobscheduler_linux-x64.$JSVER.tar.gz && \
 	tar xzf /tmp/jobscheduler_linux-x64.$JSVER.tar.gz -C /tmp && \
