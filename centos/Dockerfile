@@ -1,34 +1,35 @@
-FROM centos:7
+FROM docker.io/centos
 
 MAINTAINER <christophe.gattardi@gmail.com>
 
-ENV JSVER=1.9.11
-# My local repo
-#ENV JSURL=http://192.168.99.1/osjs
-# sos-berlin official URL
-ENV JSURL=https://download.sos-berlin.com/JobScheduler.1.9
+ENV JAVA_VERSION=1.8.0 \
+	  JSVER=1.9.11
 
-COPY jobscheduler_install.$JSVER.xml jobscheduler.sh.patch jobscheduler_environment_variables.sh.patch /tmp/
-COPY start_js.sh /opt/sos-berlin.com/jobscheduler/osjs_4444/bin/
 
-RUN yum -y update && \
-	cd /tmp && \
-	yum -y install wget postgresql patch && \
-	# put you JRE stuff here
-	yum -y install java-1.8.0-openjdk && \
-	# end JRE
-	wget -q $JSURL/jobscheduler_linux-x64.$JSVER.tar.gz && \
-	tar xzf /tmp/jobscheduler_linux-x64.$JSVER.tar.gz -C /tmp && \
-	/tmp/jobscheduler.$JSVER/setup.sh /tmp/jobscheduler_install.$JSVER.xml && \
-	rm -fr /tmp/jobscheduler.$JSVER && \
-	rm -f /tmp/jobscheduler_install.JSVER.xml /tmp/jobscheduler_linux-x64.$JSVER.tar.gz && \
-	patch /opt/sos-berlin.com/jobscheduler/osjs_4444/bin/jobscheduler.sh /tmp/jobscheduler.sh.patch && \
-	patch /opt/sos-berlin.com/jobscheduler/osjs_4444/bin/jobscheduler_environment_variables.sh /tmp/jobscheduler_environment_variables.sh.patch && \
-	rm -f /tmp/jobscheduler*.patch && \
-	yum -y remove patch && \
-	yum clean all
+RUN yum install -y \
+java-${JAVA_VERSION}-openjdk \
+patch \
+postgresql \
+&& yum clean all
 
-RUN chmod 755 /opt/sos-berlin.com/jobscheduler/osjs_4444/bin/start_js.sh
+RUN export JSURL='https://download.sos-berlin.com/JobScheduler.1.9'; \
+export JSARCHIVE="jobscheduler_linux-x64.${JSVER}.tar.gz"; \
+mkdir -p /tmp/install \
+&& mkdir -p /app \
+&& cd /tmp/install \
+&& curl -sSLf -O ${JSURL}/${JSARCHIVE} \
+&& tar xpf $JSARCHIVE \
+&& rm -f $JSARCHIVE \
+&& cd jobscheduler.$JSVER \
+&& mv setup.sh jobscheduler_linux-x64.${JSVER}.jar /app/ \
+&& rm -rf /tmp/install
 
 EXPOSE 4444
-CMD ["/opt/sos-berlin.com/jobscheduler/osjs_4444/bin/start_js.sh"]
+
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+CMD ["/opt/sos-berlin.com/jobscheduler/osjs_4444/bin/jobscheduler.sh", "execfg"]
+
+COPY entrypoint.sh jobscheduler_install.$JSVER.xml jobscheduler.sh.patch jobscheduler_environment_variables.sh.patch /app/
+
+RUN chmod 755 /app/*.sh

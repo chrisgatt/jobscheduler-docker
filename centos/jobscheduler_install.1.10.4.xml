@@ -65,11 +65,11 @@
 </com.izforge.izpack.panels.UserInputPanel>
 <com.izforge.izpack.panels.UserInputPanel id="dbconnection">
 <userInput>
-<entry key="databaseSchema" value="scheduler"/>
-<entry key="databaseUser" value="scheduler"/>
-<entry key="databaseHost" value="osjsdb"/>
-<entry key="databasePassword" value="scheduler"/>
-<entry key="databasePort" value="5432"/>
+<entry key="databaseSchema" value="{{PG_SCHEDULER_DB}}"/>
+<entry key="databaseUser"   value="{{PG_SCHEDULER_USER}}"/>
+<entry key="databaseHost"   value="{{PGHOST}}"/>
+<entry key="databasePassword" value="{{PG_SCHEDULER_PASSWD}}"/>
+<entry key="databasePort"   value="5432"/>
 </userInput>
 </com.izforge.izpack.panels.UserInputPanel>
 <com.izforge.izpack.panels.UserInputPanel id="jdbc">
