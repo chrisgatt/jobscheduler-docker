@@ -18,9 +18,9 @@
 
 The provided dockerfile allow you to specify the ojs version via the JSVER and the JSURL environment variables.
 The JSURL is the "base" URL without the <jobscheduler*>.tar.gz file name (see dockerfile for example).
-You can use both an Oracle JRE or an OpenJdk you just need to change the lines beetween the tag "put your JRE stuff here" and "end JRE". 
+You can use both an Oracle JRE or an OpenJdk you just need to change the lines beetween the tag "put your JRE stuff here" and "end JRE".
 
- 
+
 
 ## Dependencies
 
@@ -43,6 +43,6 @@ docker run -d --link osjsdb \
 	   -p 4444:4444 \
 	   -v osjs_data:/home/user/sos-berlin.com/jobscheduler \
 	   -v osjs_logs:/var/log/sos-berlin.com \
-	   -e PG_ADMIN_PASSWD=manager -e PG_SCHED_PASSWD=scheduler \
+	   -e PG_ADMIN_PASSWD=manager -e PG_SCHEDULER_PASSWD=scheduler \
 	   osjsserv
 ```
