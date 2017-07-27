@@ -3,6 +3,9 @@
 export PGHOST=${PG_HOST:-osjsdb}
 export PG_SCHEDULER_DB=${PG_SCHEDULER_DB:-scheduler}
 export PG_SCHEDULER_USER=${PG_SCHEDULER_USER:-scheduler}
+export SCHEDULER_ID=${SCHEDULER_ID:-osjs_4444}
+export SCHEDULER_HOST=${SCHEDULER_HOST:-osjs}
+export SCHEDULER_ALLOWED_HOST=${SCHEDULER_ALLOWED_HOST:-0.0.0.0}
 
 if [[ -z "$PG_SCHEDULER_PASSWD" ]]; then
 	echo "Error: variable 'PG_SCHEDULER_PASSWD' not set. Exiting..." >&2
@@ -10,8 +13,8 @@ if [[ -z "$PG_SCHEDULER_PASSWD" ]]; then
 fi
 
 # Remove old configurations if exists
-if [[ -d /home/user/sos-berlin.com/jobscheduler/osjs_4444 ]]; then
-	cd /home/user/sos-berlin.com/jobscheduler/osjs_4444
+if [[ -d /home/user/sos-berlin.com/jobscheduler/${SCHEDULER_ID} ]]; then
+	cd /home/user/sos-berlin.com/jobscheduler/${SCHEDULER_ID}
 	rm -f ./bin/jobscheduler_environment_variables.sh
 	rm -f ./config/{scheduler.xml,jetty.xml,web.xml,sos.ini,factory.ini}
 fi
@@ -23,13 +26,16 @@ sed -i \
 	-e "s/{{PG_SCHEDULER_USER}}/$PG_SCHEDULER_USER/g" \
 	-e "s/{{PG_SCHEDULER_PASSWD}}/$PG_SCHEDULER_PASSWD/g" \
 	-e "s/{{PG_SCHEDULER_DB}}/$PG_SCHEDULER_DB/g" \
+	-e "s/{{SCHEDULER_ID}}/$SCHEDULER_ID/g" \
+	-e "s/{{SCHEDULER_HOST}}/$SCHEDULER_HOST/g" \
+	-e "s/{{SCHEDULER_ALLOWED_HOST}}/$SCHEDULER_ALLOWED_HOST/g" \
 	/tmp/jobscheduler_install.xml
 
 # Install jobscheduler
 /app/setup.sh /tmp/jobscheduler_install.xml || exit $?
 
 # Patch files
-cd /opt/sos-berlin.com/jobscheduler/osjs_4444/bin
+cd /opt/sos-berlin.com/jobscheduler/${SCHEDULER_ID}/bin
 patch jobscheduler.sh /app/jobscheduler.sh.patch
 patch jobscheduler_environment_variables.sh /app/jobscheduler_environment_variables.sh.patch
 
@@ -64,8 +70,11 @@ GRANT ALL PRIVILEGES ON DATABASE $PG_SCHEDULER_DB TO $PG_SCHEDULER_USER;
 alter user $PG_SCHEDULER_USER set standard_conforming_strings = off;
 alter user $PG_SCHEDULER_USER set bytea_output = 'escape';
 EOF
-		/opt/sos-berlin.com/jobscheduler/osjs_4444/install/scheduler_install_tables.sh
+		/opt/sos-berlin.com/jobscheduler/${SCHEDULER_ID}/install/scheduler_install_tables.sh
 	fi
 fi
+
+# create symlink to have a unique CMD patched
+ln -sf /opt/sos-berlin.com/jobscheduler/${SCHEDULER_ID} /opt/sos-berlin.com/jobscheduler/current
 
 exec "$@"

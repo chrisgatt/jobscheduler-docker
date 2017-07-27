@@ -31,6 +31,9 @@ this image need a postgres database to run. You can use any avalaible postgres i
   - PG_SCHEDULER_USER: name of the user to connect to the db (default: scheduler)
   - PG_SCHEDULER_PASSWD: password of the user to connect to the db (no default)
   - PG_ADMIN_PASSWD: password of the administrator of the db (no default)
+  - SCHEDULER_ID: jobscheduler id (default: osjs_4444)
+  - SCHEDULER_HOST: jobscheduler host name (not so usefull in container context) (default: osjs)
+  - SCHEDULER_ALLOWED_HOST: ip range allowed to connect to the scheduler (default: 0.0.0.0 all ip allowed)
 
 The container is designed to reconfigure ojs at each startup to reflect change in the context (change of database server name for example).
 
@@ -51,6 +54,7 @@ docker run -d --link osjsdb \
 	   -p 4444:4444 \
 	   -v osjs_data:/home/user/sos-berlin.com/jobscheduler \
 	   -v osjs_logs:/var/log/sos-berlin.com \
-	   -e PG_ADMIN_PASSWD=manager -e PG_SCHEDULER_PASSWD=scheduler \
+     -e PG_ADMIN_PASSWD=manager -e PG_SCHEDULER_PASSWD=scheduler \
+     -e SCHEDULER_ALLOWED_HOST=127.0.0.1 \
 	    chrisgatt/jobscheduler-docker
 ```

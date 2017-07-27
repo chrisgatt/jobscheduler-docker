@@ -25,10 +25,10 @@
 <com.izforge.izpack.panels.UserInputPanel id="network">
 <userInput>
 <entry key="schedulerPort" value="4444"/>
-<entry key="schedulerAllowedHost" value="0.0.0.0"/>
-<entry key="schedulerId" value="osjs_4444"/>
+<entry key="schedulerAllowedHost" value="{{SCHEDULER_ALLOWED_HOST}}"/>
+<entry key="schedulerId" value="{{SCHEDULER_ID}}"/>
 <entry key="jettyHTTPSPort" value="48444"/>
-<entry key="schedulerHost" value="osjs"/>
+<entry key="schedulerHost" value="{{SCHEDULER_HOST}}"/>
 <entry key="jettyHTTPPort" value="40444"/>
 <entry key="launchScheduler" value="no"/>
 </userInput>

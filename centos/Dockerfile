@@ -28,7 +28,7 @@ EXPOSE 4444
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-CMD ["/opt/sos-berlin.com/jobscheduler/osjs_4444/bin/jobscheduler.sh", "execfg"]
+CMD ["/opt/sos-berlin.com/jobscheduler/current/bin/jobscheduler.sh", "execfg"]
 
 COPY entrypoint.sh jobscheduler_install.$JSVER.xml jobscheduler.sh.patch jobscheduler_environment_variables.sh.patch /app/
 
