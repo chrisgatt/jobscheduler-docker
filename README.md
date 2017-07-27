@@ -54,7 +54,7 @@ docker run -d --link osjsdb \
 	   -p 4444:4444 \
 	   -v osjs_data:/home/user/sos-berlin.com/jobscheduler \
 	   -v osjs_logs:/var/log/sos-berlin.com \
-     -e PG_ADMIN_PASSWD=manager -e PG_SCHEDULER_PASSWD=scheduler \
-     -e SCHEDULER_ALLOWED_HOST=127.0.0.1 \
+	   -e PG_ADMIN_PASSWD=manager -e PG_SCHEDULER_PASSWD=scheduler \
+	   -e SCHEDULER_ALLOWED_HOST=127.0.0.1 \
 	    chrisgatt/jobscheduler-docker
 ```
